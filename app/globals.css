@@ -1,0 +1,159 @@
+@import "tailwindcss";
+
+/* ============================================================
+   Solana ecosystem theme
+   - dark navy/purple base (#0a0612)
+   - Solana brand purple #9945FF + green #14F195 as accents
+   - subtle gradient orbs in the background
+   ============================================================ */
+
+:root {
+  --background: #0a0612;
+  --foreground: #f4f4f6;
+
+  --surface: #110a1f;            /* card background */
+  --surface-elev: #170d27;       /* hovered / elevated card */
+  --muted: #170d27;
+  --muted-foreground: #9b95a8;
+
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.14);
+
+  --primary: #14f195;            /* Solana green */
+  --primary-foreground: #0a0612;
+  --accent: #9945ff;             /* Solana purple */
+  --accent-foreground: #f4f4f6;
+
+  --success: #14f195;
+  --warning: #f5b14a;
+  --danger: #ff5d6c;
+
+  --ring: rgba(153, 69, 255, 0.45);
+  --gradient-solana: linear-gradient(90deg, #9945ff 0%, #14f195 100%);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--surface);
+  --color-card-foreground: var(--foreground);
+  --color-popover: var(--surface-elev);
+  --color-popover-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--surface);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-secondary: var(--surface-elev);
+  --color-secondary-foreground: var(--foreground);
+  --color-destructive: var(--danger);
+  --color-destructive-foreground: var(--foreground);
+  --color-ring: var(--ring);
+  --font-sans: var(--font-sans);
+}
+
+html,
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Faint Solana-flavoured gradient orbs that sit behind everything.
+   Low opacity so the rest of the UI stays readable. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(60rem 40rem at 8% -10%, rgba(153, 69, 255, 0.18), transparent 70%),
+    radial-gradient(50rem 35rem at 110% 10%, rgba(20, 241, 149, 0.10), transparent 70%),
+    radial-gradient(70rem 50rem at 50% 110%, rgba(153, 69, 255, 0.10), transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+main,
+nav,
+header,
+section,
+aside {
+  position: relative;
+  z-index: 1;
+}
+
+::selection {
+  background: rgba(153, 69, 255, 0.45);
+  color: #fff;
+}
+
+/* Subtle scrollbars that don't break the dark theme. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+/* ============================================================
+   Wallet Adapter overrides
+   ============================================================ */
+
+.wallet-adapter-button-trigger,
+.wallet-adapter-button {
+  background: var(--gradient-solana) !important;
+  color: #0a0612 !important;
+  border-radius: 10px !important;
+  font-weight: 600 !important;
+  font-family: var(--font-sans), system-ui, sans-serif !important;
+}
+.wallet-adapter-button-trigger:not(:disabled):hover,
+.wallet-adapter-button:not(:disabled):hover {
+  filter: brightness(1.06);
+}
+.wallet-adapter-button-end-icon,
+.wallet-adapter-button-start-icon {
+  filter: brightness(0) saturate(100%);
+}
+.wallet-adapter-modal {
+  background: rgba(10, 6, 18, 0.7) !important;
+  backdrop-filter: blur(8px);
+}
+.wallet-adapter-modal-wrapper {
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+}
+.wallet-adapter-modal-title,
+.wallet-adapter-modal-list-more {
+  color: var(--foreground) !important;
+}
+.wallet-adapter-modal-list li button {
+  background: var(--surface-elev) !important;
+  color: var(--foreground) !important;
+  border-radius: 10px !important;
+}
+.wallet-adapter-modal-list li button:hover {
+  background: rgba(153, 69, 255, 0.15) !important;
+}
+
+/* Utility class for the brand gradient text */
+.solana-gradient-text {
+  background: var(--gradient-solana);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
