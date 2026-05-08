@@ -1,0 +1,17 @@
+node_modules
+.next
+out
+.env
+.env.local
+*.tsbuildinfo
+next-env.d.ts
+.DS_Store
+.vercel
+.idea
+.vscode
+
+# Legacy file-backed dev DB (now superseded by Prisma + Supabase)
+.solpack-db.json
+
+# Prisma generated client
+lib/generated/
