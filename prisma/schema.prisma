@@ -1,0 +1,71 @@
+// Solpack schema. Mirrors hack-money-xpack but trimmed for Solana:
+//  - single payment address per project (Solana base58)
+//  - currency is "USDC" or "SOL" instead of receiveMode/unifiedReceiveAddress/suiAddress
+//  - drop Receipt / Device / Entitlement (added back when subscription/per-device flows land)
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider  = "postgresql"
+}
+
+model Developer {
+  id            String    @id @default(cuid())
+  walletAddress String    @unique // Solana base58 address
+  apiKeys       ApiKey[]
+  projects      Project[]
+  createdAt     DateTime  @default(now())
+}
+
+model Project {
+  id              String           @id @default(cuid())
+  name            String
+  pricingModel    String           // "per_device" | "subscription" | "per_user"
+  currency        String           @default("USDC") // "USDC" | "SOL"
+  paymentAddress  String           // Solana base58 payout address
+  developer       Developer        @relation(fields: [developerId], references: [id])
+  developerId     String
+  apiKeys         ApiKey[]
+  pricingRules    PricingRule[]
+  installAttempts InstallAttempt[]
+  createdAt       DateTime         @default(now())
+}
+
+model ApiKey {
+  id          String    @id @default(cuid())
+  value       String    @unique
+  project     Project   @relation(fields: [projectId], references: [id])
+  projectId   String
+  developer   Developer @relation(fields: [developerId], references: [id])
+  developerId String
+  createdAt   DateTime  @default(now())
+  rotatedAt   DateTime?
+}
+
+model PricingRule {
+  id        String  @id @default(cuid())
+  project   Project @relation(fields: [projectId], references: [id])
+  projectId String
+  model     String  // pricing model string
+  amount    Float   // in the project's chosen currency
+}
+
+model InstallAttempt {
+  id           String   @id @default(cuid())
+  project      Project  @relation(fields: [projectId], references: [id])
+  projectId    String
+  // status:
+  //   "attempt"            - script started, no payment yet decided
+  //   "payment_required"   - session created, awaiting on-chain pay
+  //   "payment_completed"  - on-chain transfer verified
+  //   "allowed"            - install was authorised to proceed
+  //   "failed"             - verification failed or timed out
+  status       String
+  amount       Float?
+  signature    String?  // Solana tx signature when applicable
+  sessionToken String?  @unique
+  createdAt    DateTime @default(now())
+}
