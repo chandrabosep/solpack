@@ -100,7 +100,7 @@ export async function verifyPaymentOnChain(args: {
   const expectedRaw =
     tolerance > 0
       ? (expectedRawExact * BigInt(Math.round((1 - tolerance) * 10_000))) /
-        10_000n
+        BigInt(10_000)
       : expectedRawExact;
 
   // Path A — explicit SPL transfer/transferChecked instructions. This catches
@@ -232,7 +232,7 @@ function ataBalanceDelta(
   if (!postEntry) return null;
 
   const preEntry = findEntry(pre);
-  const preRaw = preEntry?.raw ?? 0n;
+  const preRaw = preEntry?.raw ?? BigInt(0);
 
   return postEntry.raw - preRaw;
 }

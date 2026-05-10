@@ -292,8 +292,8 @@ export default function LifiPayWidget({
       if (pass1Out < targetRaw) {
         // ratio = price / pass1Out, applied to fromAmount, plus 0.5% buffer.
         // All math in BigInt with 1e6 precision.
-        const ratioNumerator = targetRaw * 10_050n; // *1.005
-        const ratioDenominator = pass1Out * 10_000n;
+        const ratioNumerator = targetRaw * BigInt(10_050); // *1.005
+        const ratioDenominator = pass1Out * BigInt(10_000);
         const scaledFromAmount =
           (BigInt(candidate.fromAmount) * ratioNumerator) / ratioDenominator;
 
