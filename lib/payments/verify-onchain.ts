@@ -18,15 +18,34 @@ const LAMPORTS_PER_SOL = 1_000_000_000;
  * For USDC: looks at parsed SPL token transfers (transfer / transferChecked)
  *           where mint == USDC_MINT and destination ATA owner == recipient.
  * For SOL:  looks at parsed system program transfers to recipient.
+ *
+ * Optional overrides (used by the LI.FI mainnet path):
+ *   - rpcUrl:      hit a different cluster's RPC (e.g. mainnet) regardless
+ *                  of the project's configured cluster.
+ *   - tokenMint:   match a different USDC mint (mainnet vs devnet).
+ *   - tolerance:   accept payments slightly under expectedAmount to absorb
+ *                  bridge slippage (fraction in [0..1], e.g. 0.005 = 0.5%).
  */
 export async function verifyPaymentOnChain(args: {
   signature: string;
   recipient: string;
   expectedAmount: number; // human units
   currency: "USDC" | "SOL";
+  rpcUrl?: string;
+  tokenMint?: string;
+  tolerance?: number;
 }): Promise<VerifyResult> {
-  const { signature, recipient, expectedAmount, currency } = args;
-  const connection = new Connection(SOLANA_RPC_URL, "confirmed");
+  const {
+    signature,
+    recipient,
+    expectedAmount,
+    currency,
+    rpcUrl,
+    tokenMint,
+    tolerance = 0,
+  } = args;
+  const connection = new Connection(rpcUrl ?? SOLANA_RPC_URL, "confirmed");
+  const usdcMint = tokenMint ?? USDC_MINT;
 
   let tx: ParsedTransactionWithMeta | null = null;
   try {
@@ -74,10 +93,19 @@ export async function verifyPaymentOnChain(args: {
   }
 
   // USDC (SPL token)
-  const expectedRaw = BigInt(
+  const expectedRawExact = BigInt(
     Math.round(expectedAmount * 10 ** USDC_DECIMALS),
   );
+  // Apply tolerance (e.g. 0.5%) to absorb bridge slippage on the LI.FI path.
+  const expectedRaw =
+    tolerance > 0
+      ? (expectedRawExact * BigInt(Math.round((1 - tolerance) * 10_000))) /
+        10_000n
+      : expectedRawExact;
 
+  // Path A — explicit SPL transfer/transferChecked instructions. This catches
+  // direct wallet payments where the source signs a transfer to the recipient
+  // ATA.
   for (const ix of instructions) {
     if (!("parsed" in ix)) continue;
     if (ix.program !== "spl-token") continue;
@@ -94,21 +122,14 @@ export async function verifyPaymentOnChain(args: {
       | undefined;
     if (!p) continue;
     if (p.type !== "transfer" && p.type !== "transferChecked") continue;
-
-    // For transferChecked, mint is on info.mint. For plain transfer, we have
-    // to resolve via postTokenBalances. Cheap path: just check the post balance
-    // change against the destination ATA below.
-    if (p.type === "transferChecked" && p.info?.mint !== USDC_MINT) continue;
+    if (p.type === "transferChecked" && p.info?.mint !== usdcMint) continue;
 
     const destAta = p.info?.destination;
     if (!destAta) continue;
 
-    // Confirm destination ATA belongs to recipient and is for USDC mint.
-    const destOk = ataMatches(tx, destAta, recipientPk, USDC_MINT);
+    const destOk = ataMatches(tx, destAta, recipientPk, usdcMint);
     if (!destOk) continue;
 
-    // Amount: prefer info.tokenAmount.amount (transferChecked), fall back to
-    // info.amount (plain transfer).
     const rawStr =
       p.info?.tokenAmount?.amount ??
       (typeof p.info?.amount === "string" ? p.info.amount : undefined);
@@ -120,6 +141,15 @@ export async function verifyPaymentOnChain(args: {
       continue;
     }
     if (raw >= expectedRaw) return { verified: true };
+  }
+
+  // Path B — bridge-style fills that *don't* show up as parsed SPL transfer
+  // instructions (mint, CPI from a custom program, etc.). Compare the
+  // recipient ATA's post-tx balance vs pre-tx balance and accept if it
+  // increased by at least the expected amount.
+  const balanceDelta = ataBalanceDelta(tx, recipientPk, usdcMint);
+  if (balanceDelta !== null && balanceDelta >= expectedRaw) {
+    return { verified: true };
   }
 
   return {
@@ -160,4 +190,49 @@ function ataMatches(
     return true;
   }
   return false;
+}
+
+/**
+ * Returns the net change in the recipient's USDC ATA token balance for this
+ * transaction (post - pre, in raw base units). Used to verify bridge-style
+ * fills where there's no parsed `transfer` instruction we can match — e.g.
+ * Across releases on Solana, Wormhole/Mayan mint+settle CPIs, etc.
+ *
+ * Returns null if the recipient's USDC ATA isn't touched by the tx.
+ */
+function ataBalanceDelta(
+  tx: ParsedTransactionWithMeta,
+  expectedOwner: PublicKey,
+  expectedMint: string,
+): bigint | null {
+  const ownerStr = expectedOwner.toString();
+  const pre = tx.meta?.preTokenBalances ?? [];
+  const post = tx.meta?.postTokenBalances ?? [];
+
+  const findEntry = (
+    list: typeof pre,
+  ): { idx: number; raw: bigint } | null => {
+    for (const tb of list) {
+      if (tb.mint !== expectedMint) continue;
+      if (tb.owner !== ownerStr) continue;
+      const rawStr = tb.uiTokenAmount?.amount;
+      if (typeof rawStr !== "string") continue;
+      let raw: bigint;
+      try {
+        raw = BigInt(rawStr);
+      } catch {
+        continue;
+      }
+      return { idx: tb.accountIndex, raw };
+    }
+    return null;
+  };
+
+  const postEntry = findEntry(post);
+  if (!postEntry) return null;
+
+  const preEntry = findEntry(pre);
+  const preRaw = preEntry?.raw ?? 0n;
+
+  return postEntry.raw - preRaw;
 }

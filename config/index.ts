@@ -16,3 +16,19 @@ export const USDC_MINT =
 
 // USDC has 6 decimals on Solana.
 export const USDC_DECIMALS = 6;
+
+// ---- LI.FI cross-chain payments -------------------------------------------
+// Integrator key registered with LI.FI (https://portal.li.fi). Optional —
+// without it the widget still works in unbranded mode.
+export const LIFI_INTEGRATOR =
+  process.env.NEXT_PUBLIC_LIFI_INTEGRATOR?.trim() || "solpack";
+
+// LI.FI's numeric chain id for Solana (SVM).
+export const LIFI_SOLANA_CHAIN_ID = 1151111081099710;
+
+// USDC mint on Solana mainnet — LI.FI is mainnet-only, so even when the
+// rest of the app is pointed at devnet we route LI.FI bridges into the
+// mainnet USDC mint. The author's payout wallet receives the funds there;
+// the verifier needs to be configured against mainnet RPC to confirm.
+export const LIFI_DEST_USDC_MINT =
+  "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";

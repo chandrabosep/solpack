@@ -24,6 +24,11 @@ const WalletMultiButton = dynamic(
   { ssr: false },
 );
 
+const LifiPayWidget = dynamic(
+  () => import("@/components/pay/lifi-pay-widget"),
+  { ssr: false },
+);
+
 type SessionInfo = {
   sessionToken: string;
   status: "payment_required" | "allowed" | "failed" | string;
@@ -48,6 +53,7 @@ function PayInner() {
   const [txSig, setTxSig] = useState<string | null>(null);
   const [paying, setPaying] = useState(false);
   const [verified, setVerified] = useState(false);
+  const [tab, setTab] = useState<"solana" | "lifi">("solana");
 
   useEffect(() => {
     if (!sessionToken) {
@@ -196,23 +202,67 @@ function PayInner() {
           </div>
         ) : (
           <>
-            <div className="mt-6">
-              <WalletMultiButton />
+            <div className="mt-6 grid grid-cols-2 rounded-lg border border-white/10 bg-white/5 p-1 text-sm">
+              <button
+                type="button"
+                onClick={() => setTab("solana")}
+                className={`rounded-md py-2 transition ${
+                  tab === "solana"
+                    ? "bg-white/10 font-medium text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Solana wallet
+              </button>
+              <button
+                type="button"
+                onClick={() => setTab("lifi")}
+                disabled={session.currency !== "USDC"}
+                className={`rounded-md py-2 transition disabled:opacity-40 ${
+                  tab === "lifi"
+                    ? "bg-white/10 font-medium text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                title={
+                  session.currency !== "USDC"
+                    ? "Cross-chain pay is USDC-only"
+                    : undefined
+                }
+              >
+                Pay from any chain
+              </button>
             </div>
-            <button
-              type="button"
-              disabled={!connected || paying}
-              onClick={pay}
-              className="mt-4 w-full rounded-lg bg-[image:var(--gradient-solana)] py-3 font-semibold text-[#0a0612] disabled:opacity-50 hover:brightness-105 transition"
-            >
-              {paying ? "Sending…" : `Pay ${session.price} ${session.currency}`}
-            </button>
-            {txSig && (
-              <p className="mt-3 text-xs text-muted-foreground">
-                Tx: {shortAddress(txSig, 8)}
-              </p>
+
+            {tab === "solana" ? (
+              <>
+                <div className="mt-4">
+                  <WalletMultiButton />
+                </div>
+                <button
+                  type="button"
+                  disabled={!connected || paying}
+                  onClick={pay}
+                  className="mt-4 w-full rounded-lg bg-[image:var(--gradient-solana)] py-3 font-semibold text-[#0a0612] disabled:opacity-50 hover:brightness-105 transition"
+                >
+                  {paying ? "Sending…" : `Pay ${session.price} ${session.currency}`}
+                </button>
+                {txSig && (
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    Tx: {shortAddress(txSig, 8)}
+                  </p>
+                )}
+                {error && <p className="mt-3 text-sm text-rose-300">{error}</p>}
+              </>
+            ) : (
+              <div className="mt-4">
+                <LifiPayWidget
+                  sessionToken={session.sessionToken}
+                  payoutAddress={session.address}
+                  priceUsdc={session.price}
+                  onVerified={() => setVerified(true)}
+                />
+              </div>
             )}
-            {error && <p className="mt-3 text-sm text-rose-300">{error}</p>}
           </>
         )}
 
